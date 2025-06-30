@@ -1,0 +1,115 @@
+import fs from "fs-extra";
+import path from "path";
+
+const README_REGEX:RegExp = /^README(?:\.md)?$/i;
+const GITIGNORE_REGEX:RegExp = /^\.gitignore$/i;
+const FOLDERS_TO_IGNORE:string[] = [".git", "dist", "node_modules"];
+
+export interface AuditResults {
+    unusedEnvExample: boolean,
+    emptyFolders: string[];
+    duplicatedReadmeFiles: string[];
+    duplicatedGitIgnoreFiles: string[];
+    duplicatedFiles: string[];
+    unusedFiles: string[];
+}
+
+enum FileTypes {
+    readme = ".md",
+    gitIgnore = ".gitignore",
+}
+
+export async function auditProject(dir: string): Promise<AuditResults> {
+    const auditResults: AuditResults = {
+        unusedEnvExample: false,
+        emptyFolders: [],
+        duplicatedReadmeFiles: [],
+        duplicatedGitIgnoreFiles: [],
+        duplicatedFiles: [],
+        unusedFiles: []
+    }
+
+    async function checkForEnvExampleWithoutEnv(folderPath: string): Promise<void> {
+        const envExample = path.join(folderPath, '.env.example');
+        const env = path.join(folderPath, '.env');
+
+        if(await fs.existsSync(envExample) && !await fs.existsSync(env)){
+            auditResults.unusedEnvExample = true;
+        }
+        else {
+            const entries = (await fs.readdir(folderPath, { withFileTypes: true }))
+            .filter(dirent => dirent.isDirectory()).map(dirent => dirent.name);
+
+            if(entries.length > 0){
+                for(const dir of entries){
+                    if(!FOLDERS_TO_IGNORE.includes(dir.toLowerCase())){
+                        const dirPath = path.join(folderPath, dir);
+                        await checkForEnvExampleWithoutEnv(dirPath);
+                    }
+                }
+            }
+        }
+    }
+
+    async function checkForEmptyFolders(folderPath: string): Promise<void> {
+        try {
+            const entries = await fs.readdir(folderPath, { withFileTypes: true });
+            if(entries.length == 0){
+                auditResults.emptyFolders.push(folderPath);
+            }
+            else {
+                const directories = entries.filter(dirent => dirent.isDirectory()).map(dirent => dirent.name);
+                for(const dir of directories){
+                    if(!FOLDERS_TO_IGNORE.includes(dir.toLowerCase())){
+                        const dirPath = path.join(folderPath, dir);
+                        await checkForEmptyFolders(dirPath);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    async function checkForDuplicatedTypeFiles(folderPath: string, fileType: FileTypes): Promise<void> {
+        const duplicates: string[] = [];
+        
+        try {
+            const entries = await fs.readdir(folderPath, { withFileTypes: true });
+
+            for(let i=0; i < entries.length; i++){
+                if(FOLDERS_TO_IGNORE.includes(entries[i].name.toLowerCase())){
+                    continue;
+                }
+
+                const entryPath = path.join(folderPath, entries[i].name);
+                const regexToUse = (fileType == FileTypes.readme) ? README_REGEX : GITIGNORE_REGEX;
+
+                if(entries[i].isFile() && regexToUse.test(entries[i].name)){
+                    duplicates.push(entryPath);
+                }
+                else if(entries[i].isDirectory()){
+                    await checkForDuplicatedTypeFiles(entryPath, fileType);
+                }
+            }
+
+            if(duplicates.length > 0){
+                if(fileType == FileTypes.readme){
+                    auditResults.duplicatedReadmeFiles.push(...duplicates);
+                }
+                else if(fileType == FileTypes.gitIgnore){
+                    auditResults.duplicatedGitIgnoreFiles.push(...duplicates);
+                }
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    await checkForEnvExampleWithoutEnv(dir);
+    await checkForEmptyFolders(dir);
+    await checkForDuplicatedTypeFiles(dir, FileTypes.readme);
+    await checkForDuplicatedTypeFiles(dir, FileTypes.gitIgnore);
+
+    return auditResults;
+}
