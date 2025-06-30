@@ -1,55 +1,11 @@
 import { Command } from "commander";
 import pkgJson from "../package.json";
 import path from "path";
-import { auditProject, AuditResults } from "./auditor";
+import { auditProject } from "./auditor";
 import inquirer from "inquirer";
 import fs from "fs-extra";
 import chalk from "chalk";
-
-
-function printReport(result: AuditResults) {
-  console.log(chalk.yellow('\nProject Audit Report:\n'));
-
-  const checks: { 
-    label: string; 
-    isOk: boolean; 
-    details?: string[]; 
-    okMessage?: string 
-  }[] = [
-    {
-      label: '.env.example found without .env file',
-      isOk: !result.unusedEnvExample,
-      okMessage: '.env.example usage OK',
-    },
-    {
-      label: 'Empty folders detected',
-      isOk: result.emptyFolders.length === 0,
-      details: result.emptyFolders,
-      okMessage: 'No empty folders',
-    },
-    {
-      label: 'Multiple README files detected',
-      isOk: result.duplicatedReadmeFiles.length === 0,
-      details: result.duplicatedReadmeFiles,
-      okMessage: 'README files OK',
-    },
-    {
-      label: 'Multiple .gitignore files detected',
-      isOk: result.duplicatedGitIgnoreFiles.length === 0,
-      details: result.duplicatedGitIgnoreFiles,
-      okMessage: '.gitignore files OK',
-    },
-  ];
-
-  for (const check of checks) {
-    if (check.isOk) {
-      console.log(chalk.green(`✔️  ${check.okMessage}`));
-    } else {
-      console.log(chalk.red(`⚠️  ${check.label}`));
-      check.details?.forEach(f => console.log('   -', f));
-    }
-  }
-}
+import printReport from "./helper";
 
 async function main() {
   const program = new Command();
