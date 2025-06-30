@@ -1,1 +1,1 @@
-# node-project-cleanup-cli
+# node-project-auditor-cli

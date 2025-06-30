@@ -1,1 +1,0 @@
-# node-project-cleanup-cli
