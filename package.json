@@ -1,5 +1,5 @@
 {
-  "name": "node-project-cleanup-cli",
+  "name": "node-project-auditor-cli",
   "version": "1.0.0",
   "description": "",
   "main": "index.ts",
@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/danlb-dev/node-project-cleanup-cli.git"
+    "url": "git+https://github.com/danlb-dev/node-project-auditor-cli.git"
   },
   "dependencies": {
     "chalk": "^5.4.1",
