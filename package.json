@@ -16,7 +16,8 @@
     "chalk": "^5.4.1",
     "commander": "^14.0.0",
     "fs-extra": "^11.3.0",
-    "inquirer": "^12.6.3"
+    "inquirer": "^12.6.3",
+    "simple-git": "^3.28.0"
   },
   "devDependencies": {
     "@types/chalk": "^0.4.31",

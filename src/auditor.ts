@@ -1,16 +1,17 @@
 import fs from "fs-extra";
 import path from "path";
+import simpleGit, { FileStatusResult, SimpleGit, StatusResult } from "simple-git";
 
 const README_REGEX:RegExp = /^README(?:\.md)?$/i;
 const GITIGNORE_REGEX:RegExp = /^\.gitignore$/i;
 const FOLDERS_TO_IGNORE:string[] = [".git", "dist", "node_modules"];
 
 export interface AuditResults {
-    unusedEnvExample: boolean,
     emptyFolders: string[];
+    unusedEnvExample: boolean,
     duplicatedReadmeFiles: string[];
     duplicatedGitIgnoreFiles: string[];
-    duplicatedFiles: string[];
+    unstagedFiles: string[];
     unusedFiles: string[];
 }
 
@@ -21,11 +22,11 @@ enum FileTypes {
 
 export async function auditProject(dir: string): Promise<AuditResults> {
     const auditResults: AuditResults = {
-        unusedEnvExample: false,
         emptyFolders: [],
+        unusedEnvExample: false,
         duplicatedReadmeFiles: [],
         duplicatedGitIgnoreFiles: [],
-        duplicatedFiles: [],
+        unstagedFiles: [],
         unusedFiles: []
     }
 
@@ -36,6 +37,7 @@ export async function auditProject(dir: string): Promise<AuditResults> {
     await checkForEnvExWithoutEnv(dir, auditResults);
     await checkForDuplicatedTypeFiles(dir, FileTypes.readme, auditResults);
     await checkForDuplicatedTypeFiles(dir, FileTypes.gitIgnore, auditResults);
+    await checkForUnstagedFiles(dir, auditResults);
 
     return auditResults;
 }
@@ -116,5 +118,19 @@ async function checkForDuplicatedTypeFiles(folderPath: string, fileType: FileTyp
     } catch (error) {
         console.error(error);
     }
+}
+
+async function checkForUnstagedFiles(dir: string, auditResults: AuditResults): Promise<void> {
+  const git:SimpleGit = simpleGit(dir);
+  const status:StatusResult = await git.status();
+  const files: FileStatusResult[] = status.files;
+
+  if(files.length > 0){
+    files.forEach(fileStatusResult => {
+        if(fileStatusResult.working_dir == 'M'){
+            auditResults.unstagedFiles.push(fileStatusResult.path);
+        }
+    });
+  }
 }
 //#endregion

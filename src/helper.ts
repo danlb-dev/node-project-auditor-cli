@@ -33,6 +33,12 @@ function printReport(result: AuditResults) {
       details: result.duplicatedGitIgnoreFiles,
       okMessage: 'No multiple .gitignore files',
     },
+    {
+      label: 'Files with changes not staged',
+      isOk: result.unstagedFiles.length === 0,
+      details: result.unstagedFiles,
+      okMessage: 'No Files with unstaged changes',
+    }
   ];
 
   for (const check of checks) {
