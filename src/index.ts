@@ -1,11 +1,11 @@
 import { Command } from "commander";
+import { auditProject, AuditResults } from "./auditor";
+import { printReportToConsole } from "./auditorHelper";
 import pkgJson from "../package.json";
 import path from "path";
-import { auditProject } from "./auditor";
 import inquirer from "inquirer";
 import fs from "fs-extra";
 import chalk from "chalk";
-import printReport from "./helper";
 
 async function main() {
   const program = new Command();
@@ -34,9 +34,9 @@ async function main() {
           }
       ]);
 
-      const fullPath = path.resolve(folderPath);
-      const result = await auditProject(fullPath);
-      printReport(result);
+      const fullPath: string = path.resolve(folderPath);
+      const result: AuditResults = await auditProject(fullPath);
+      printReportToConsole(result);
 
       if(result.emptyFolders.length > 0){
           const { confirmDelete } = await inquirer.prompt([
