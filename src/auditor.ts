@@ -9,6 +9,7 @@ const FOLDERS_TO_IGNORE:string[] = [".git", "dist", "node_modules"];
 export interface AuditResults {
     emptyFolders: string[];
     unusedEnvExample: boolean,
+    multipleLockFiles: string[];
     duplicatedReadmeFiles: string[];
     duplicatedGitIgnoreFiles: string[];
     unstagedFiles: string[];
@@ -24,6 +25,7 @@ export async function auditProject(dir: string): Promise<AuditResults> {
     const auditResults: AuditResults = {
         emptyFolders: [],
         unusedEnvExample: false,
+        multipleLockFiles: [],
         duplicatedReadmeFiles: [],
         duplicatedGitIgnoreFiles: [],
         unstagedFiles: [],
@@ -35,6 +37,7 @@ export async function auditProject(dir: string): Promise<AuditResults> {
 
     await checkForEmptyFolders(dir, auditResults);
     await checkForEnvExWithoutEnv(dir, auditResults);
+    await checkForMultipleLockFiles(dir, auditResults);
     await checkForDuplicatedTypeFiles(dir, FileTypes.readme, auditResults);
     await checkForDuplicatedTypeFiles(dir, FileTypes.gitIgnore, auditResults);
     await checkForUnstagedFiles(dir, auditResults);
@@ -42,7 +45,8 @@ export async function auditProject(dir: string): Promise<AuditResults> {
     return auditResults;
 }
 
-//#region private functions
+//#region Private Functions
+
 async function checkForEmptyFolders(folderPath: string, auditResults: AuditResults): Promise<void> {
     try {
         const entries = await fs.readdir(folderPath, { withFileTypes: true });
@@ -64,31 +68,66 @@ async function checkForEmptyFolders(folderPath: string, auditResults: AuditResul
 }
 
 async function checkForEnvExWithoutEnv(folderPath: string, auditResults: AuditResults): Promise<void> {
-    const envExample = path.join(folderPath, '.env.example');
-    const env = path.join(folderPath, '.env');
+    try {
+        const envExample = path.join(folderPath, '.env.example');
+        const env = path.join(folderPath, '.env');
 
-    if(await fs.existsSync(envExample) && !await fs.existsSync(env)){
-        auditResults.unusedEnvExample = true;
-    }
-    else {
-        const entries = (await fs.readdir(folderPath, { withFileTypes: true }))
-        .filter(dirent => dirent.isDirectory()).map(dirent => dirent.name);
+        if(await fs.existsSync(envExample) && !await fs.existsSync(env)){
+            auditResults.unusedEnvExample = true;
+        }
+        else {
+            const entries = (await fs.readdir(folderPath, { withFileTypes: true }))
+            .filter(dirent => dirent.isDirectory()).map(dirent => dirent.name);
 
-        if(entries.length > 0){
-            for(const dir of entries){
-                if(!FOLDERS_TO_IGNORE.includes(dir.toLowerCase())){
-                    const dirPath = path.join(folderPath, dir);
-                    await checkForEnvExWithoutEnv(dirPath, auditResults);
+            if(entries.length > 0){
+                for(const dir of entries){
+                    if(!FOLDERS_TO_IGNORE.includes(dir.toLowerCase())){
+                        const dirPath = path.join(folderPath, dir);
+                        await checkForEnvExWithoutEnv(dirPath, auditResults);
+                    }
                 }
             }
         }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+async function checkForMultipleLockFiles(folderPath: string, auditResults: AuditResults): Promise<void> {
+    try {
+        const knownLockFiles = [
+            'package-lock.json', // npm
+            'yarn.lock',         // Yarn
+            'pnpm-lock.yaml',    // pnpm
+            'bun.lockb'          // Bun
+        ];
+
+        for (const lockFile of knownLockFiles) {
+            const lockFilePath = path.join(folderPath, lockFile);
+            if (await fs.existsSync(lockFilePath)) {
+                auditResults.multipleLockFiles.push(lockFilePath);
+            }
+        }
+
+        const entries = (await fs.readdir(folderPath, { withFileTypes: true }));
+        const directories = entries.filter(dirent => dirent.isDirectory()).map(dirent => dirent.name);
+
+        if(directories.length > 0){
+            for(const dir of directories){
+                if(!FOLDERS_TO_IGNORE.includes(dir.toLowerCase())){
+                    const dirPath = path.join(folderPath, dir);
+                    await checkForMultipleLockFiles(dirPath, auditResults);
+                }
+            }
+        }
+    } catch (error) {
+        console.error(error);
     }
 }
 
 async function checkForDuplicatedTypeFiles(folderPath: string, fileType: FileTypes, auditResults: AuditResults): Promise<void> {
-    const duplicates: string[] = [];
-    
     try {
+        const duplicates: string[] = [];
         const entries = await fs.readdir(folderPath, { withFileTypes: true });
 
         for(let i=0; i < entries.length; i++){
@@ -121,16 +160,21 @@ async function checkForDuplicatedTypeFiles(folderPath: string, fileType: FileTyp
 }
 
 async function checkForUnstagedFiles(dir: string, auditResults: AuditResults): Promise<void> {
-  const git:SimpleGit = simpleGit(dir);
-  const status:StatusResult = await git.status();
-  const files: FileStatusResult[] = status.files;
+  try {
+    const git:SimpleGit = simpleGit(dir);
+    const status:StatusResult = await git.status();
+    const files: FileStatusResult[] = status.files;
 
-  if(files.length > 0){
-    files.forEach(fileStatusResult => {
-        if(fileStatusResult.working_dir == 'M'){
-            auditResults.unstagedFiles.push(fileStatusResult.path);
-        }
-    });
+    if(files.length > 0){
+        files.forEach(fileStatusResult => {
+            if(fileStatusResult.working_dir == 'M'){
+                auditResults.unstagedFiles.push(fileStatusResult.path);
+            }
+        });
+    }
+  } catch (error) {
+    console.error(error);
   }
 }
+
 //#endregion

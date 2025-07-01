@@ -21,7 +21,7 @@ async function main() {
           {
               type: 'input',
               name: 'folderPath',
-              message: 'Please enter the path of the project folder to audit:',
+              message: ' Please enter the path of the project folder to audit:',
               default:'.',
               validate: (input) => {
                   if(fs.existsSync(input) && fs.lstatSync(input).isDirectory()){
@@ -34,7 +34,7 @@ async function main() {
           }
       ]);
 
-      const fullPath = path.resolve(folderPath);console.log(fullPath);
+      const fullPath = path.resolve(folderPath);
       const result = await auditProject(fullPath);
       printReport(result);
 
@@ -64,8 +64,8 @@ async function main() {
               console.log(chalk.gray('No folders were deleted.'));
           }
       }
-  } catch (err: any) {
-      console.error(err);
+  } catch (error) {
+      console.error(error);
       process.exit(1);
   }
 }
